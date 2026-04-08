@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARCOPANTE // NEXUS-7 TERMINAL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #06060e;
+            --bg2: #0a0a18;
+            --cyan: #00f0ff;
+            --magenta: #ff0040;
+            --amber: #ff8c00;
+            --green: #39ff14;
+            --text: #d8d8e8;
+            --muted: #3a3a5c;
+            --card: rgba(10, 10, 28, 0.85);
+            --border: rgba(0, 240, 255, 0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            cursor: crosshair;
+        }
+
+        ::selection {
+            background: var(--cyan);
+            color: var(--bg);
+        }
+
+        /* ===== LLUVIA ===== */
+        #rainCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.35;
+        }
+
+        /* ===== SCANLINES ===== */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 999;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.08) 2px,
+                rgba(0, 0, 0, 0.08) 4px
+            );
+        }
+
+        /* ===== GRID PERSPECTIVA ===== */
+        .perspective-grid {
+            position: fixed;
+            bottom: 0;
+            left: -20%;
+            width: 140%;
+            height: 45vh;
+            background:
+                linear-gradient(to right, rgba(0,240,255,0.25) 1px, transparent 1px) 0 0 / 80px 80px,
+                linear-gradient(to bottom, rgba(0,240,255,0.25) 1px, transparent 1px) 0 0 / 80px 80px;
+            transform: perspective(400px) rotateX(65deg);
+            transform-origin: center top;
+            opacity: 0.2;
+            z-index: 0;
+            pointer-events: none;
+            animation: gridPulse 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes gridPulse {
+            0% { opacity: 0.12; }
+            100% { opacity: 0.25; }
+        }
+
+        /* ===== MOUSE GLOW ===== */
+        #mouseGlow {
+            position: fixed;
+            width: 500px; height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,240,255,0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 1;
+            transform: translate(-50%, -50%);
+            transition: left 0.15s ease-out, top 0.15s ease-out;
+        }
+
+        /* ===== BARRA DE ESTADO ===== */
+        .status-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            background: rgba(6, 6, 14, 0.92);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .status-bar .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 2s infinite;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        @keyframes blink {
+            0%, 90%, 100% { opacity: 1; }
+            95% { opacity: 0.2; }
+        }
+
+        .status-bar .bar-fill {
+            width: 120px; height: 4px;
+            background: var(--muted);
+            border-radius: 2px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 6px;
+        }
+
+        .status-bar .bar-fill span {
+            display: block;
+            height: 100%;
+            width: 87%;
+            background: linear-gradient(90deg, var(--cyan), var(--green));
+            animation: barPulse 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes barPulse {
+            0% { width: 82%; }
+            100% { width: 95%; }
+        }
+
+        /* ===== CONTENIDO PRINCIPAL ===== */
+        main {
+            position: relative;
+            z-index: 2;
+            padding-top: 50px;
+        }
+
+        /* ===== GLITCH TEXT ===== */
+        .glitch {
+            position: relative;
+            display: inline-block;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+        }
+
+        .glitch::before {
+            color: var(--cyan);
+            animation: glitch1 3s infinite linear alternate-reverse;
+            clip-path: inset(0 0 60% 0);
+        }
+
+        .glitch::after {
+            color: var(--magenta);
+            animation: glitch2 2s infinite linear alternate-reverse;
+            clip-path: inset(40% 0 0 0);
+        }
+
+        @keyframes glitch1 {
+            0%, 85%, 100% { transform: translate(0); }
+            86% { transform: translate(-4px, -2px); }
+            88% { transform: translate(3px, 1px); }
+            90% { transform: translate(-2px, 2px); }
+            92% { transform: translate(0); }
+        }
+
+        @keyframes glitch2 {
+            0%, 80%, 100% { transform: translate(0); }
+            81% { transform: translate(3px, 2px); }
+            83% { transform: translate(-4px, -1px); }
+            85% { transform: translate(2px, -2px); }
+            87% { transform: translate(0); }
+        }
+
+        /* ===== NEON GLOW ===== */
+        .neon-cyan {
+            color: var(--cyan);
+            text-shadow: 0 0 7px var(--cyan), 0 0 20px rgba(0,240,255,0.3);
+        }
+
+        .neon-magenta {
+            color: var(--magenta);
+            text-shadow: 0 0 7px var(--magenta), 0 0 20px rgba(255,0,64,0.3);
+        }
+
+        .neon-amber {
+            color: var(--amber);
+            text-shadow: 0 0 7px var(--amber), 0 0 20px rgba(255,140,0,0.3);
+        }
+
+        .neon-green {
+            color: var(--green);
+            text-shadow: 0 0 7px var(--green), 0 0 20px rgba(57,255,20,0.3);
+        }
+
+        .neon-border {
+            border: 1px solid var(--border);
+            box-shadow: 0 0 8px rgba(0,240,255,0.05), inset 0 0 8px rgba(0,240,255,0.03);
+        }
+
+        /* ===== PERFIL IMAGEN ===== */
+        .profile-ring {
+            position: relative;
+            width: 220px; height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-ring::before {
+            content: '';
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: var(--cyan);
+            border-right-color: var(--magenta);
+            animation: spinRing 4s linear infinite;
+        }
+
+        .profile-ring::after {
+            content: '';
+            position: absolute;
+            width: 115%; height: 115%;
+            border-radius: 50%;
+            border: 1px solid transparent;
+            border-bottom-color: var(--amber);
+            border-left-color: rgba(0,240,255,0.3);
+            animation: spinRing 7s linear infinite reverse;
+        }
+
+        @keyframes spinRing {
+            to { transform: rotate(360deg); }
+        }
+
+        .profile-ring img {
+            width: 190px; height: 190px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(0,240,255,0.25);
+            filter: saturate(0.7) contrast(1.1);
+            transition: filter 0.4s, transform 0.4s;
+        }
+
+        .profile-ring:hover img {
+            filter: saturate(1) contrast(1.2) hue-rotate(-10deg);
+            transform: scale(1.03);
+        }
+
+        .profile-ring .hex-badge {
+            position: absolute;
+            bottom: -8px; right: -8px;
+            width: 48px; height: 48px;
+            background: var(--bg);
+            border: 1px solid var(--cyan);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 0 12px rgba(0,240,255,0.2);
+            z-index: 3;
+        }
+
+        /* ===== TERMINAL (ALIEN / MOTHER STYLE) ===== */
+        .mother-terminal {
+            background: #020a02;
+            border: 1px solid rgba(57,255,20,0.2);
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(57,255,20,0.05), inset 0 0 60px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mother-terminal::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 1px,
+                rgba(57,255,20,0.015) 1px,
+                rgba(57,255,20,0.015) 2px
+            );
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .mother-terminal .terminal-header {
+            background: rgba(57,255,20,0.08);
+            padding: 8px 16px;
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--green);
+            border-bottom: 1px solid rgba(57,255,20,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mother-terminal .terminal-header .led {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 1.5s infinite;
+        }
+
+        .mother-terminal .terminal-body {
+            padding: 20px 24px;
+            font-size: 13px;
+            line-height: 1.9;
+            color: rgba(57,255,20,0.75);
+            min-height: 240px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .mother-terminal .cursor-blink {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: var(--green);
+            animation: cursorBlink 0.8s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+
+        @keyframes cursorBlink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* ===== SECCIÓN TÍTULOS (ALIEN POSTER STYLE) ===== */
+        .alien-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+        }
+
+        /* ===== PROJECT CARDS ===== */
+        .project-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+            backdrop-filter: blur(8px);
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .project-card:hover::before {
+            left: 100%;
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(0,240,255,0.3);
+            box-shadow: 0 8px 32px rgba(0,240,255,0.08), 0 0 0 1px rgba(0,240,255,0.1);
+        }
+
+        .project-card .card-index {
+            position: absolute;
+            top: 12px; right: 16px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: var(--muted);
+        }
+
+        .project-card .lang-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .project-card .card-corner {
+            position: absolute;
+            width: 14px; height: 14px;
+            border-color: rgba(0,240,255,0.2);
+            border-style: solid;
+            border-width: 0;
+            transition: border-color 0.3s;
+        }
+
+        .project-card:hover .card-corner {
+            border-color: rgba(0,240,255,0.5);
+        }
+
+        .project-card .card-corner.tl { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+        .project-card .card-corner.tr { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+        .project-card .card-corner.bl { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+        .project-card .card-corner.br { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+
+        /* ===== SKILL BADGES ===== */
+        .skill-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            letter-spacing: 1px;
+            background: rgba(0,240,255,0.03);
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .skill-badge:hover {
+            border-color: var(--cyan);
+            background: rgba(0,240,255,0.08);
+            box-shadow: 0 0 12px rgba(0,240,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        /* ===== BOTONES ===== */
+        .btn-neon {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-neon::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,240,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-neon:hover::before { left: 100%; }
+
+        .btn-neon:hover {
+            background: rgba(0,240,255,0.08);
+            box-shadow: 0 0 20px rgba(0,240,255,0.15), inset 0 0 20px rgba(0,240,255,0.05);
+        }
+
+        .btn-magenta {
+            border-color: var(--magenta);
+            color: var(--magenta);
+        }
+
+        .btn-magenta:hover {
+            background: rgba(255,0,64,0.08);
+            box-shadow: 0 0 20px rgba(255,0,64,0.15), inset 0 0 20px rgba(255,0,64,0.05);
+        }
+
+        .btn-magenta::before {
+            background: linear-gradient(90deg, transparent, rgba(255,0,64,0.1), transparent);
+        }
+
+        /* ===== FLOATING PARTICLES ===== */
+        .particle {
+            position: fixed;
+            width: 2px; height: 2px;
+            background: var(--cyan);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0;
+            animation: floatUp linear infinite;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(100vh) scale(0); }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { opacity: 0; transform: translateY(-10vh) scale(1); }
+        }
+
+        /* ===== DECORATIVO LÍNEAS ===== */
+        .deco-line {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0.2;
+        }
+
+        /* ===== SEPARADOR BIOMECÁNICO (ALIEN) ===== */
+        .bio-deco {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0.3;
+        }
+
+        .bio-deco .segment {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--muted));
+        }
+
+        .bio-deco .node {
+            width: 6px; height: 6px;
+            border: 1px solid var(--muted);
+            transform: rotate(45deg);
+        }
+
+        /* ===== SCROLL REVEAL ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===== CARGANDO ===== */
+        #loader {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+
+        #loader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        #loader .boot-text {
+            font-size: 12px;
+            letter-spacing: 3px;
+            color: var(--cyan);
+            opacity: 0.7;
+        }
+
+        #loader .boot-bar {
+            width: 200px; height: 2px;
+            background: var(--muted);
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        #loader .boot-bar span {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: var(--cyan);
+            animation: bootLoad 1.8s ease-in-out forwards;
+        }
+
+        @keyframes bootLoad {
+            0% { width: 0%; }
+            60% { width: 75%; }
+            100% { width: 100%; }
+        }
+
+        /* ===== FOOTER ===== */
+        .footer-deco {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 9px;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            color: var(--muted);
+            opacity: 0.4;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .glitch { font-size: 2.2rem !important; }
+            .profile-ring { width: 160px; height: 160px; }
+            .profile-ring img { width: 140px; height: 140px; }
+            .alien-title { letter-spacing: 0.15em; font-size: 1.2rem !important; }
+            .status-bar { font-size: 9px; padding: 6px 12px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- LOADER -->
+    <div id="loader">
+        <div class="boot-text">INICIALIZANDO SISTEMA NEXUS-7</div>
+        <div class="boot-bar"><span></span></div>
+    </div>
+
+    <!-- LLUVIA -->
+    <canvas id="rainCanvas"></canvas>
+
+    <!-- GRID PERSPECTIVA -->
+    <div class="perspective-grid"></div>
+
+    <!-- SCANLINES -->
+    <div class="scanlines"></div>
+
+    <!-- MOUSE GLOW -->
+    <div id="mouseGlow"></div>
+
+    <!-- PARTÍCULAS FLOTANTES -->
+    <div id="particles"></div>
+
+    <!-- BARRA DE ESTADO -->
+    <header class="status-bar" role="banner">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span><span class="dot"></span>NEXUS-7</span>
+            <span class="hidden sm:inline" style="color:var(--muted)">|</span>
+            <span class="hidden sm:inline neon-cyan" style="font-size:10px">SYS.STATUS: ONLINE</span>
+        </div>
+        <div class="flex items-center gap-4 flex-wrap">
+            <span style="color:var(--muted)" class="hidden md:inline">NEURAL CORE</span>
+            <span class="bar-fill"><span></span></span>
+            <span id="clock" style="color:var(--amber);font-size:10px;letter-spacing:2px">00:00:00</span>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main>
+        <!-- ===== HERO ===== -->
+        <section class="min-h-screen flex items-center justify-center px-6 py-20">
+            <div class="max-w-6xl w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+                <!-- Texto -->
+                <div class="flex-1 text-center lg:text-left order-2 lg:order-1">
+                    <div class="flex items-center gap-3 justify-center lg:justify-start mb-6">
+                        <div style="width:30px;height:1px;background:var(--cyan)"></div>
+                        <span style="font-size:10px;letter-spacing:5px;color:var(--muted);text-transform:uppercase">Ingeniero de Sistemas // AI Architect</span>
+                    </div>
+
+                    <h1 class="glitch neon-cyan mb-6" data-text="ARCOPANTE" style="font-size:4rem;line-height:1.1">
+                        ARCOPANTE
+                    </h1>
+
+                    <p id="heroTyping" style="font-size:14px;color:var(--text);min-height:24px;margin-bottom:32px;letter-spacing:1px;opacity:0.8"></p>
+
+                    <div class="flex flex-wrap gap-4 justify-center lg:justify-start">
+                        <a href="#proyectos" class="btn-neon">
+                            <i class="fa-brands fa-github"></i> Ver Proyectos
+                        </a>
+                        <a href="https://github.com/arcopante" target="_blank" rel="noopener" class="btn-neon btn-magenta">
+                            <i class="fa-solid fa-satellite-dish"></i> Contactar
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Perfil -->
+                <div class="order-1 lg:order-2 flex-shrink-0">
+                    <div class="profile-ring">
+                        <img id="profileImg" src="https://github.com/arcopante.png" alt="Arcopante - Ingeniero de Sistemas" loading="eager">
+                        <div class="hex-badge" title="Fanático del espacio">
+                            <i class="fa-solid fa-rocket" style="color:var(--cyan);font-size:16px"></i>
+                        </div>
+                    </div>
+                    <div class="text-center mt-6" style="font-size:10px;letter-spacing:4px;color:var(--muted);text-transform:uppercase">
+                        ID: ARC-7291 // CLASIFICADO
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEPARADOR -->
+        <div class="bio-deco px-6 max-w-4xl mx-auto">
+            <div class="segment"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="segment"></div>
+        </div>
+
+        <!-- ===== TERMINAL MOTHER (ALIEN) ===== -->
+        <section class="px-6 py-24 reveal">
+            <div class="max-w-3xl mx-auto">
+                <div class="text-center mb-10">
+                    <span class="alien-title neon-green" style="font-size:0.7rem;display:block;margin-bottom:8px">Acceso a terminal</span>
+                    <h2 class="alien-title neon-green" style="font-size:1.6rem">MOTHER</h2>
+                    <p style="font-size:11px;letter-spacing:3px;color:var(--muted);margin-top:8px">INTERFAZ DE DIAGNOSTICO // NOSTROMO-7</p>
+                </div>
+
+                <div class="mother-terminal">
+                    <div class="terminal-header">
+                        <div class="led"></div>
+                        <span>MOTHER INTERFACE v4.7.2099</span>
+                        <span style="margin-left:auto;opacity:0.5">SPECIAL ORDER 937</span>
+                    </div>
+                    <div class="terminal-body" id="terminalBody">
+                        <span id="terminalText"></span><span class="cursor-blink"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEPARADOR -->
+        <div class="deco-line max-w-5xl mx-auto my-4"></div>
+
+        <!-- ===== PROYECTOS ===== -->
+        <section id="proyectos" class="px-6 py-24 reveal">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <span class="alien-title neon-cyan" style="font-size:0.65rem;display:block;margin-bottom:8px">Repositorio neural</span>
+                    <h2 class="alien-title neon-cyan" style="font-size:1.8rem">PROYECTOS DE IA</h2>
+                    <p style="font-size:11px;letter-spacing:3px;color:var(--muted);margin-top:8px">CÓDIGO ALMACENADO EN GITHUB // CLASIFICACIÓN: PÚBLICA</p>
+                </div>
+
+                <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Proyectos cargados dinámicamente -->
+                </div>
+
+                <div id="projectsError" class="hidden text-center py-12">
+                    <i class="fa-solid fa-triangle-exclamation neon-amber" style="font-size:28px;margin-bottom:12px;display:block"></i>
+                    <p style="color:var(--amber);letter-spacing:2px;font-size:12px">ERROR DE CONEXIÓN AL REPOSITORIO CENTRAL</p>
+                    <p style="color:var(--muted);letter-spacing:1px;font-size:11px;margin-top:8px">Intenta acceder directamente a <a href="https://github.com/arcopante" target="_blank" style="color:var(--cyan);text-decoration:underline">github.com/arcopante</a></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEPARADOR -->
+        <div class="bio-deco px-6 max-w-4xl mx-auto">
+            <div class="segment"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="segment"></div>
+        </div>
+
+        <!-- ===== STACK TECNOLÓGICO ===== -->
+        <section class="px-6 py-24 reveal">
+            <div class="max-w-4xl mx-auto text-center">
+                <span class="alien-title neon-magenta" style="font-size:0.65rem;display:block;margin-bottom:8px">Arsenal técnico</span>
+                <h2 class="alien-title neon-magenta" style="font-size:1.6rem">STACK TECNOLÓGICO</h2>
+                <p style="font-size:11px;letter-spacing:3px;color:var(--muted);margin-top:8px;margin-bottom:40px">HERRAMIENTAS DEL SISTEMA // ACTUALIZACIÓN CONTINUA</p>
+
+                <div class="flex flex-wrap gap-3 justify-center" id="stackGrid">
+                    <!-- Cargado por JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SEPARADOR -->
+        <div class="deco-line max-w-5xl mx-auto my-4"></div>
+
+        <!-- ===== CITA ESPACIAL ===== -->
+        <section class="px-6 py-24 reveal">
+            <div class="max-w-3xl mx-auto text-center">
+                <i class="fa-solid fa-quote-left" style="font-size:28px;color:var(--muted);opacity:0.3;display:block;margin-bottom:20px"></i>
+                <blockquote style="font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:500;letter-spacing:3px;line-height:2;color:var(--text)">
+                    En el espacio, nadie puede escucharte compilar.
+                </blockquote>
+                <i class="fa-solid fa-quote-right" style="font-size:28px;color:var(--muted);opacity:0.3;display:block;margin-top:20px"></i>
+                <div style="margin-top:20px;font-size:10px;letter-spacing:5px;color:var(--muted);text-transform:uppercase">
+                    — Adaptado de Alien, 1979
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="relative z-10 px-6 py-16 border-t" style="border-color:var(--border);background:rgba(6,6,14,0.9)">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div class="text-center md:text-left">
+                    <div class="footer-deco mb-2">Weyland-Yutani Corp</div>
+                    <div style="font-size:10px;letter-spacing:3px;color:var(--muted)">Building better worlds since 2099</div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <a href="https://github.com/arcopante" target="_blank" rel="noopener" class="text-lg transition-colors duration-300" style="color:var(--muted)" onmouseenter="this.style.color='var(--cyan)'" onmouseleave="this.style.color='var(--muted)'" aria-label="GitHub de Arcopante">
+                        <i class="fa-brands fa-github"></i>
+                    </a>
+                    <a href="https://github.com/arcopante" target="_blank" rel="noopener" class="text-lg transition-colors duration-300" style="color:var(--muted)" onmouseenter="this.style.color='var(--cyan)'" onmouseleave="this.style.color='var(--muted)'" aria-label="LinkedIn">
+                        <i class="fa-brands fa-linkedin"></i>
+                    </a>
+                    <a href="https://github.com/arcopante" target="_blank" rel="noopener" class="text-lg transition-colors duration-300" style="color:var(--muted)" onmouseenter="this.style.color='var(--cyan)'" onmouseleave="this.style.color='var(--muted)'" aria-label="Twitter/X">
+                        <i class="fa-brands fa-x-twitter"></i>
+                    </a>
+                    <a href="mail: arcopante (arroba) icloud (punto) com" class="text-lg transition-colors duration-300" style="color:var(--muted)" onmouseenter="this.style.color='var(--cyan)'" onmouseleave="this.style.color='var(--muted)'" aria-label="Email">
+                        <i class="fa-solid fa-envelope"></i>
+                    </a>
+                </div>
+
+                <div class="text-center md:text-right">
+                    <div style="font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;color:var(--muted)">
+                        ARCOPANTE <span style="color:var(--cyan)">//</span> <span id="yearFooter"></span>
+                    </div>
+                    <div style="font-size:9px;letter-spacing:2px;color:var(--muted);opacity:0.5;margin-top:4px">
+                        NEXUS-7 TERMINAL v4.7
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-12" style="font-size:9px;letter-spacing:4px;color:var(--muted);opacity:0.25">
+                EL SISTEMA ES LEAL // EL SISTEMA NO DUERME // EL SISTEMA RECUERDA
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /* ================================================
+           ARCOpanTE - NEXUS-7 TERMINAL
+           Script principal
+        ================================================ */
+
+        // ---- LOADER ----
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('hidden');
+            }, 2000);
+        });
+
+        // ---- RELOJ ----
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ---- AÑO FOOTER ----
+        document.getElementById('yearFooter').textContent = new Date().getFullYear();
+
+        // ---- MOUSE GLOW ----
+        const mouseGlow = document.getElementById('mouseGlow');
+        document.addEventListener('mousemove', (e) => {
+            mouseGlow.style.left = e.clientX + 'px';
+            mouseGlow.style.top = e.clientY + 'px';
+        });
+
+        // ---- LLUVIA (CANVAS) ----
+        const rainCanvas = document.getElementById('rainCanvas');
+        const rCtx = rainCanvas.getContext('2d');
+        let rainDrops = [];
+
+        function resizeRain() {
+            rainCanvas.width = window.innerWidth;
+            rainCanvas.height = window.innerHeight;
+        }
+        resizeRain();
+        window.addEventListener('resize', resizeRain);
+
+        // Crear gotas de lluvia
+        function initRain() {
+            rainDrops = [];
+            const count = Math.floor(window.innerWidth / 8);
+            for (let i = 0; i < count; i++) {
+                rainDrops.push({
+                    x: Math.random() * rainCanvas.width,
+                    y: Math.random() * rainCanvas.height,
+                    len: Math.random() * 18 + 8,
+                    speed: Math.random() * 4 + 3,
+                    opacity: Math.random() * 0.3 + 0.1,
+                    drift: Math.random() * 0.5 - 0.25
+                });
+            }
+        }
+        initRain();
+
+        function drawRain() {
+            rCtx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
+            for (const drop of rainDrops) {
+                rCtx.beginPath();
+                rCtx.moveTo(drop.x, drop.y);
+                rCtx.lineTo(drop.x + drop.drift * 3, drop.y + drop.len);
+                rCtx.strokeStyle = `rgba(0, 240, 255, ${drop.opacity})`;
+                rCtx.lineWidth = 0.6;
+                rCtx.stroke();
+
+                drop.y += drop.speed;
+                drop.x += drop.drift;
+
+                if (drop.y > rainCanvas.height) {
+                    drop.y = -drop.len;
+                    drop.x = Math.random() * rainCanvas.width;
+                }
+            }
+            requestAnimationFrame(drawRain);
+        }
+        drawRain();
+
+        // ---- PARTÍCULAS FLOTANTES ----
+        const particlesContainer = document.getElementById('particles');
+        function createParticles() {
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.animationDuration = (Math.random() * 12 + 10) + 's';
+                p.style.animationDelay = (Math.random() * 10) + 's';
+                p.style.width = (Math.random() * 2 + 1) + 'px';
+                p.style.height = p.style.width;
+                // Colores variados
+                const colors = ['var(--cyan)', 'var(--magenta)', 'var(--amber)', 'var(--green)'];
+                p.style.background = colors[Math.floor(Math.random() * colors.length)];
+                particlesContainer.appendChild(p);
+            }
+        }
+        createParticles();
+
+        // ---- TYPING HERO ----
+        const heroPhrases = [
+            'Construyendo inteligencia artificial desde los confines del ciberespacio.',
+            'Explorando las fronteras entre la IA y el cosmos.',
+            'El futuro es un algoritmo que aún no ha compilado.',
+            'Sistemas que piensan. Código que respira. Espacio que llama.',
+            'Ingeniero de sistemas por vocación. Explorador espacial por instinto.'
+        ];
+        let phraseIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        const heroTyping = document.getElementById('heroTyping');
+
+        function typeHero() {
+            const current = heroPhrases[phraseIndex];
+            if (!isDeleting) {
+                heroTyping.textContent = current.substring(0, charIndex + 1);
+                charIndex++;
+                if (charIndex === current.length) {
+                    isDeleting = true;
+                    setTimeout(typeHero, 2500);
+                    return;
+                }
+                setTimeout(typeHero, 50 + Math.random() * 30);
+            } else {
+                heroTyping.textContent = current.substring(0, charIndex - 1);
+                charIndex--;
+                if (charIndex === 0) {
+                    isDeleting = false;
+                    phraseIndex = (phraseIndex + 1) % heroPhrases.length;
+                    setTimeout(typeHero, 400);
+                    return;
+                }
+                setTimeout(typeHero, 25);
+            }
+        }
+        setTimeout(typeHero, 2200);
+
+        // ---- TERMINAL MOTHER (ALIEN) ----
+        const terminalLines = [
+            '> CONSULTANDO BASE DE DATOS DEL PERSONAL...',
+            '> ',
+            '> NOMBRE: ARCOPANTE',
+            '> CARGO: Ingeniero de Sistemas',
+            '> ESPECIALIDAD: Inteligencia Artificial',
+            '> AFILIACIÓN: Freelance / Open Source',
+            '> UBICACIÓN: Sector desconocido // Orbital',
+            '> STATUS: ACTIVO',
+            '> CLEARANCE: NIVEL ALPHA',
+            '> ',
+            '> INTERESES PRIMARIOS:',
+            '>   - Machine Learning & Deep Learning',
+            '>   - Computer Vision & NLP',
+            '>   - Arquitectura de Sistemas Distribuidos',
+            '>   - Exploración Espacial & Astroinformática',
+            '>   - Ciberseguridad & Ethical Hacking',
+            '> ',
+            '> NOTA DEL DIRECTORIO: Sujeto muestra afinidad',
+            '> inusual con inteligencias artificiales y fenómenos',
+            '> espaciales. Se recomienda mantener bajo',
+            '> observación. [REF: SPECIAL ORDER 937]',
+            '> ',
+            '> CONEXIÓN GITHUB ESTABLECIDA: github.com/arcopante',
+            '> ',
+            '> FIN DEL REPORTE.'
+        ];
+
+        let termLineIndex = 0;
+        let termCharIndex = 0;
+        const terminalText = document.getElementById('terminalText');
+
+        function typeTerminal() {
+            if (termLineIndex >= terminalLines.length) return;
+
+            const line = terminalLines[termLineIndex];
+
+            if (line === '') {
+                terminalText.innerHTML += '<br>';
+                termLineIndex++;
+                termCharIndex = 0;
+                setTimeout(typeTerminal, 100);
+                return;
+            }
+
+            if (termCharIndex < line.length) {
+                terminalText.innerHTML += line[termCharIndex];
+                termCharIndex++;
+                setTimeout(typeTerminal, 15 + Math.random() * 20);
+            } else {
+                terminalText.innerHTML += '<br>';
+                termLineIndex++;
+                termCharIndex = 0;
+                setTimeout(typeTerminal, 200 + Math.random() * 150);
+            }
+        }
+
+        // Iniciar terminal cuando la sección sea visible
+        const terminalObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && termLineIndex === 0) {
+                    setTimeout(typeTerminal, 500);
+                }
+            });
+        }, { threshold: 0.3 });
+        terminalObserver.observe(document.getElementById('terminalBody'));
+
+        // ---- GITHUB: CARGAR PROYECTOS ----
+        const langColors = {
+            'Python': '#3572A5',
+            'JavaScript': '#f1e05a',
+            'TypeScript': '#3178c6',
+            'Jupyter Notebook': '#DA5B0B',
+            'HTML': '#e34c26',
+            'CSS': '#563d7c',
+            'Shell': '#89e051',
+            'Dockerfile': '#384d54',
+            'C++': '#f34b7d',
+            'Java': '#b07219',
+            'Go': '#00ADD8',
+            'Rust': '#dea584',
+            'C#': '#178600',
+            'Ruby': '#701516',
+            'PHP': '#4F5D95',
+            'Swift': '#F05138',
+            'Kotlin': '#A97BFF',
+            'Lua': '#000080',
+            'Vue': '#41b883',
+            'Arduino': '#00979D'
+        };
+
+        async function loadProjects() {
+            const grid = document.getElementById('projectsGrid');
+            const error = document.getElementById('projectsError');
+
+            try {
+                const res = await fetch('https://api.github.com/users/arcopante/repos?sort=updated&per_page=9&type=owner');
+                if (!res.ok) throw new Error('API error');
+                const repos = await res.json();
+
+                if (repos.length === 0) {
+                    grid.innerHTML = '<p class="col-span-full text-center" style="color:var(--muted);letter-spacing:2px;font-size:12px">NO SE ENCONTRARON REPOSITORIOS</p>';
+                    return;
+                }
+
+                repos.forEach((repo, i) => {
+                    const langColor = langColors[repo.language] || '#888';
+                    const desc = repo.description || 'Sin descripción disponible.';
+                    // Truncar descripción larga
+                    const shortDesc = desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
+
+                    const card = document.createElement('a');
+                    card.href = repo.html_url;
+                    card.target = '_blank';
+                    card.rel = 'noopener';
+                    card.className = 'project-card block';
+                    card.style.animationDelay = (i * 0.1) + 's';
+                    card.setAttribute('aria-label', `Proyecto: ${repo.name}`);
+
+                    card.innerHTML = `
+                        <div class="card-corner tl"></div>
+                        <div class="card-corner tr"></div>
+                        <div class="card-corner bl"></div>
+                        <div class="card-corner br"></div>
+                        <div class="card-index">${String(i + 1).padStart(2, '0')}</div>
+                        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin-bottom:10px;padding-right:30px;line-height:1.4">
+                            ${repo.name.replace(/[-_]/g, ' ')}
+                        </div>
+                        <p style="font-size:11px;color:var(--text);opacity:0.65;line-height:1.6;margin-bottom:16px;min-height:36px">
+                            ${shortDesc}
+                        </p>
+                        <div style="display:flex;align-items:center;gap:16px;font-size:10px;color:var(--muted);letter-spacing:1px">
+                            ${repo.language ? `
+                                <span style="display:flex;align-items:center">
+                                    <span class="lang-dot" style="background:${langColor}"></span>
+                                    ${repo.language}
+                                </span>
+                            ` : ''}
+                            ${repo.stargazers_count > 0 ? `
+                                <span style="display:flex;align-items:center;gap:4px">
+                                    <i class="fa-solid fa-star" style="color:var(--amber);font-size:9px"></i>
+                                    ${repo.stargazers_count}
+                                </span>
+                            ` : ''}
+                            ${repo.forks_count > 0 ? `
+                                <span style="display:flex;align-items:center;gap:4px">
+                                    <i class="fa-solid fa-code-fork" style="font-size:9px"></i>
+                                    ${repo.forks_count}
+                                </span>
+                            ` : ''}
+                        </div>
+                    `;
+
+                    grid.appendChild(card);
+                });
+
+            } catch (err) {
+                console.error('Error cargando repos:', err);
+                grid.classList.add('hidden');
+                error.classList.remove('hidden');
+            }
+        }
+        loadProjects();
+
+        // ---- STACK TECNOLÓGICO ----
+        const stackItems = [
+            { name: 'Python', icon: 'fa-brands fa-python' },
+            { name: 'TensorFlow', icon: 'fa-solid fa-brain' },
+            { name: 'PyTorch', icon: 'fa-solid fa-fire' },
+            { name: 'OpenCV', icon: 'fa-solid fa-eye' },
+            { name: 'Scikit-Learn', icon: 'fa-solid fa-chart-line' },
+            { name: 'Docker', icon: 'fa-brands fa-docker' },
+            { name: 'Linux', icon: 'fa-brands fa-linux' },
+            { name: 'Git', icon: 'fa-brands fa-git-alt' },
+            { name: 'Node.js', icon: 'fa-brands fa-node-js' },
+            { name: 'PostgreSQL', icon: 'fa-solid fa-database' },
+            { name: 'MongoDB', icon: 'fa-solid fa-leaf' },
+            { name: 'AWS', icon: 'fa-brands fa-aws' },
+            { name: 'FastAPI', icon: 'fa-solid fa-bolt' },
+            { name: 'Hugging Face', icon: 'fa-solid fa-face-smile' },
+            { name: 'LangChain', icon: 'fa-solid fa-link' },
+            { name: 'Kubernetes', icon: 'fa-solid fa-dharmachakra' },
+            { name: 'Redis', icon: 'fa-solid fa-bolt-lightning' },
+            { name: 'Cybersecurity', icon: 'fa-solid fa-shield-halved' },
+        ];
+
+        const stackGrid = document.getElementById('stackGrid');
+        stackItems.forEach(item => {
+            const badge = document.createElement('span');
+            badge.className = 'skill-badge';
+            badge.innerHTML = `<i class="${item.icon}" style="font-size:13px;color:var(--cyan);opacity:0.7"></i> ${item.name}`;
+            stackGrid.appendChild(badge);
+        });
+
+        // ---- SCROLL REVEAL ----
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+        // ---- GLITCH INTENSIVO PERIÓDICO ----
+        const glitchEl = document.querySelector('.glitch');
+        function intenseGlitch() {
+            glitchEl.style.animation = 'none';
+            glitchEl.offsetHeight; // reflow
+            glitchEl.style.textShadow = `
+                -3px 0 var(--magenta),
+                3px 0 var(--cyan),
+                0 0 20px rgba(0,240,255,0.5)
+            `;
+            setTimeout(() => {
+                glitchEl.style.textShadow = '';
+            }, 150);
+            setTimeout(() => {
+                glitchEl.style.textShadow = `
+                    4px 0 var(--magenta),
+                    -4px 0 var(--cyan),
+                    0 0 30px rgba(255,0,64,0.4)
+                `;
+            }, 200);
+            setTimeout(() => {
+                glitchEl.style.textShadow = '';
+            }, 350);
+
+            // Programar próximo glitch
+            setTimeout(intenseGlitch, 4000 + Math.random() * 8000);
+        }
+        setTimeout(intenseGlitch, 5000);
+
+        // ---- ACTUALIZAR FOTO DE PERFIL DESDE API ----
+        async function loadProfile() {
+            try {
+                const res = await fetch('https://api.github.com/users/arcopante');
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+                if (data.avatar_url) {
+                    document.getElementById('profileImg').src = data.avatar_url;
+                }
+            } catch (e) {
+                // Mantener la imagen por defecto de github
+            }
+        }
+        loadProfile();
+    </script>
+</body>
+</html>
+
